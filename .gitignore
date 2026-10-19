@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.DS_Store
+.idea/
+.vscode/
+
+# Documents for indexing
+data/*
+!data/README.md
+
