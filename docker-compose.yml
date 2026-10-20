@@ -16,5 +16,21 @@ services:
       timeout: 3s
       retries: 10
 
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://rag:rag@db:5432/rag
+      OLLAMA_URL: http://host.docker.internal:11434
+      DATA_DIR: /data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "8000:8000"
+
 volumes:
   pgdata:
