@@ -1,0 +1,331 @@
+{
+  "info": {
+    "name": "Local RAG Assistant",
+    "description": "Collection for testing the API (FastAPI). Variables: baseUrl, ollamaUrl, question. Order: /health -> /ingest -> /ask.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "ollamaUrl",
+      "value": "http://localhost:11434",
+      "type": "string"
+    },
+    {
+      "key": "question",
+      "value": "What does the project documentation contain?",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Application",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Checks whether the application can reach the database. Returns 200 {\"status\":\"ok\"} or 503 if the database is unavailable.",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('status is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /ingest",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Indexes files from the DATA_DIR directory (path comes from server configuration). No body. Returns {\"ingested\": ...}. 404 if the directory is missing, 502 if Ollama is unavailable. The first call can take a long time (model loading).",
+            "url": {
+              "raw": "{{baseUrl}}/ingest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingest"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('has ingested field', () => pm.expect(pm.response.json()).to.have.property('ingested'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /ask (plain RAG)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Answers a question based on the documents. question: 3-1000 characters. use_agent=false -> fixed pipeline: retrieve -> prompt -> LLM.",
+            "url": {
+              "raw": "{{baseUrl}}/ask",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ask"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"{{question}}\",\n  \"use_agent\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('response is not empty', () => pm.expect(JSON.stringify(j).length).to.be.above(10));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /ask (agent mode)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Same as above, but use_agent=true: the model decides whether and how to search (tool calling, MAX_STEPS). Usually slower.",
+            "url": {
+              "raw": "{{baseUrl}}/ask",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ask"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"{{question}}\",\n  \"use_agent\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /ask (validation: question too short)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Negative test: question shorter than 3 characters -> 422 (Pydantic).",
+            "url": {
+              "raw": "{{baseUrl}}/ask",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ask"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"a\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "API documentation",
+      "item": [
+        {
+          "name": "GET /docs (Swagger UI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Auto-generated FastAPI documentation (open in a browser).",
+            "url": {
+              "raw": "{{baseUrl}}/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /openapi.json",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "OpenAPI schema generated by FastAPI.",
+            "url": {
+              "raw": "{{baseUrl}}/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ollama (diagnostics)",
+      "item": [
+        {
+          "name": "GET /api/tags (Ollama)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "List of models pulled in Ollama (called directly, bypassing the application API).",
+            "url": {
+              "raw": "{{ollamaUrl}}/api/tags",
+              "host": [
+                "{{ollamaUrl}}"
+              ],
+              "path": [
+                "api",
+                "tags"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/embed (Ollama)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Tests embeddings directly against Ollama. The key must be named 'input'.",
+            "url": {
+              "raw": "{{ollamaUrl}}/api/embed",
+              "host": [
+                "{{ollamaUrl}}"
+              ],
+              "path": [
+                "api",
+                "embed"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"bge-m3\",\n  \"input\": [\n    \"test\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('embeddings returned', () => pm.expect(pm.response.json().embeddings.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
