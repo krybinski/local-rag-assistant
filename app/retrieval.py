@@ -34,9 +34,8 @@ def search(query: str, k: int | None = None) -> list[dict]:
         for content, page, source, score in rows
     ]
 
-
 if __name__ == "__main__":
     question = " ".join(sys.argv[1:]) or "What do the documents contain?"
     for hit in search(question):
-        print(f"{hit['score']:.3f}  {hit['source']} (str. {hit['page']})")
+        print(f"{hit['score']:.3f}  {hit['source']} (page: {hit['page']})")
         print("   ", hit["content"][:200].replace("\n", " "), "...\n")
